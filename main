@@ -1,0 +1,94 @@
+import streamlit as st
+import random
+import numpy as np
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.preprocessing import LabelEncoder
+
+def gerar_pergunta(nivel):
+    if nivel == "Fácil":
+        a, b = random.randint(1, 10), random.randint(1, 10)
+        operador = random.choice(["+", "-"])
+    elif nivel == "Médio":
+        a, b = random.randint(1, 10), random.randint(1, 10)
+        operador = random.choice(["+", "-", "*"])
+    else:  # Difícil
+        a, b = random.randint(10, 30), random.randint(1, 10)
+        operador = random.choice(["+", "-", "*"])
+    
+    pergunta = f"{a} {operador} {b}"
+    resposta = eval(pergunta)  # Calcula a resposta
+    return pergunta, resposta
+
+if 'model' not in st.session_state:
+    st.session_state.model = DecisionTreeClassifier()  
+    st.session_state.pontos_usuario = []
+    st.session_state.respostas_usuario = []
+    st.session_state.niveis_pergunta = []
+
+
+def treinar_modelo():
+   
+    if len(st.session_state.pontos_usuario) > 5:  
+        X = np.array(st.session_state.pontos_usuario).reshape(-1, 1)  
+        y = np.array(st.session_state.niveis_pergunta)  
+        st.session_state.model.fit(X, y)
+
+
+def prever_nivel():
+    if len(st.session_state.pontos_usuario) > 5:
+        X = np.array(st.session_state.pontos_usuario[-5:]).reshape(-1, 1)  # Usando os últimos 5 pontos
+        nivel_previsto = st.session_state.model.predict(X[-1].reshape(1, -1))  # Prevendo próximo nível
+        return nivel_previsto[0]
+    else:
+        return "Fácil"  
+st.title("Vamos aprender Matemática")
+
+
+nivel = prever_nivel()  
+st.sidebar.header("Configurações")
+st.sidebar.write(f"Nível de Dificuldade: {nivel}")
+
+
+if "pergunta" not in st.session_state:
+    st.session_state.pergunta, st.session_state.resposta_correta = gerar_pergunta(nivel)
+
+if "pontuacao" not in st.session_state:
+    st.session_state.pontuacao = 0
+    st.session_state.total_perguntas = 0
+
+
+st.subheader("Resolva a seguinte questão:")
+st.write(st.session_state.pergunta)
+
+
+resposta_usuario = st.text_input("Sua resposta:", "")
+
+
+if st.button("Verificar"):
+    try:
+        # Verifica se a entrada é um número válido (positivo ou negativo)
+        if float(resposta_usuario) == st.session_state.resposta_correta:
+            st.success("Parabéns! Você acertou. 🎉")
+            st.session_state.pontuacao += 1
+            st.session_state.pontos_usuario.append(1)  # Registrando acerto
+        else:
+            st.error(f"Resposta errada! A resposta correta é {st.session_state.resposta_correta}.")
+            st.session_state.pontos_usuario.append(0)  # Registrando erro
+        
+        st.session_state.total_perguntas += 1
+ st.session_state.niveis_pergunta.append(nivel)  # Registrando nível de dificuldade
+
+        # Gerar nova pergunta
+        st.session_state.pergunta, st.session_state.resposta_correta = gerar_pergunta(nivel)
+
+        # Treinar o modelo com os dados coletados
+        treinar_modelo()
+
+    except ValueError:
+        st.error("Por favor, insira um número válido.")
+
+# Exibir pontuação
+st.sidebar.subheader("Seu Progresso")
+st.sidebar.write(f"Pontuação: {st.session_state.pontuacao}")
+st.sidebar.write(f"Total de Perguntas: {st.session_state.total_perguntas}")
+
